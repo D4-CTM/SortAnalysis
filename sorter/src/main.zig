@@ -152,15 +152,13 @@ fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
     });
     const rng = prng.random();
 
-    try w.print("\ndata size,{d}\n", .{allocSize});
-    try w.print("iteration,bubble sort\n", .{});
+    try w.print("iteration,bubble_sort_ms,insertion_sort_ms\n", .{});
     for (0..iters) |it| {
-        try w.print("{d},", .{it});
+        try w.print("{d},", .{it+1});
         for (algs) |alg| {
             rng.bytes(std.mem.sliceAsBytes(data));
             const duration = sorter.measure(io, alg.name, alg.alg, data);
-            try duration.format(w);
-            try w.writeByte(',');
+            try w.print("{d},", .{ duration.toMilliseconds() });
         }
         try w.writeByte('\n');
         try w.flush();
@@ -179,23 +177,6 @@ pub fn main(init: std.process.Init) !void {
     var buffer: [1024]u8 = undefined;
     var writer = file.writerStreaming(init.io, &buffer);
 
-    try writer.interface.print("Date,", .{});
-    {
-        const now = std.Io.Clock.real.now(init.io);
-        const secs = now.toSeconds();
-
-        const es: std.time.epoch.EpochSeconds = .{ .secs = @intCast(secs) };
-        const yd = es.getEpochDay().calculateYearDay();
-        const md = yd.calculateMonthDay();
-        const ds = es.getDaySeconds();
-
-        try writer.interface.print("{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}\n", .{
-            yd.year,              md.month.numeric(),      md.day_index + 1,
-            ds.getHoursIntoDay(), ds.getMinutesIntoHour(), ds.getSecondsIntoMinute(),
-        });
-        try writer.interface.flush();
-    }
-
     if (cli.minArraySize) |min| {
         try iterate(init.io, &writer.interface, cli.iterations, min);
     }
@@ -207,4 +188,6 @@ pub fn main(init: std.process.Init) !void {
     if (cli.maxArraySize) |max| {
         try iterate(init.io, &writer.interface, cli.iterations, max);
     }
+
+    try writer.interface.flush();
 }

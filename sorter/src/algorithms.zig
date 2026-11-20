@@ -2,10 +2,18 @@
 const std = @import("std");
 const Io = std.Io;
 
-fn swap(a: *usize, b: *usize) void {
+// Using both xor and normal swap prove to be meaningless, almost no visible
+// change was visible in the output .csv so it was decided to use the regular swap.
+inline fn xorSwap(noalias a: *usize, noalias b: *usize) void {
     a.* = a.* ^ b.*;
     b.* = a.* ^ b.*;
     a.* = a.* ^ b.*;
+}
+
+inline fn swap(noalias a: *usize, noalias b: *usize) void {
+    const tmp = a.*;
+    a.* = b.*;
+    b.* = tmp;
 }
 
 /// O(n^2)
@@ -14,10 +22,10 @@ pub fn bubbleSort(data: []usize) void {
     if (len <= 1)
         return;
 
-    for (0..len) |i| {
-        for (i..len) |j| {
-            if (data[i] > data[j]) {
-                swap(&data[i], &data[j]);
+    for (0..(len-1)) |i| {
+        for (0..(len-i-1)) |j| {
+            if (data[j] > data[j+1]) {
+                swap(&data[j], &data[j+1]);
             }
         }
     }
@@ -47,7 +55,7 @@ pub fn insertionSort(data: []usize) void {
     }
 }
 
-test "Test bubble sort" {
+fn testRunner(sortFn: *const fn(d: []usize) void) !void {
     const t = std.testing;
 
     const sortedData = [_]usize{ 1, 12, 15, 42, 50, 89 };
@@ -55,24 +63,14 @@ test "Test bubble sort" {
     var hardData = [_]usize{ 1, 15, 42, 12, 89, 50 };
     const softData = &hardData;
 
-    bubbleSort(softData);
+    sortFn(softData);
 
     for (sortedData, softData) |e, a| {
         try t.expectEqual(e, a);
     }
 }
 
-test "Test insertion sort" {
-    const t = std.testing;
-
-    const sortedData = [_]usize{ 1, 12, 15, 42, 50, 89 };
-
-    var hardData = [_]usize{ 1, 15, 42, 12, 89, 50 };
-    const softData = &hardData;
-
-    insertionSort(softData);
-
-    for (sortedData, softData) |e, a| {
-        try t.expectEqual(e, a);
-    }
+test "Test sorts" {
+    try testRunner(&bubbleSort);
+    try testRunner(&insertionSort);
 }
