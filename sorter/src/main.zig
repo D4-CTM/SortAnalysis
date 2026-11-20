@@ -5,17 +5,17 @@ const allocator = std.heap.page_allocator;
 
 const sorter = @import("sorter");
 
-const Algorithms = struct {
-    name: []const u8,
-    alg: *const fn ([]usize) void,
-};
-
 fn createFile(io: Io, path: []const u8) !Io.File {
     return if (std.fs.path.isAbsolute(path))
         try Io.Dir.createFileAbsolute(io, path, .{})
     else
         try Io.Dir.cwd().createFile(io, path, .{});
 }
+
+const Algorithms = struct {
+    name: []const u8,
+    alg: *const fn ([]usize) anyerror!void,
+};
 
 fn prettifyName(comptime name: []const u8) []const u8 {
     comptime var out: []const u8 = "";
@@ -54,7 +54,7 @@ fn printHeader(w: *Io.Writer) !void {
         names = names ++ alg.name ++ " Ms,";
     }
 
-    try w.writeAll("Iteration," ++ names ++ "\n");
+    try w.writeAll("DataSize,Iteration," ++ names ++ "\n");
 }
 
 fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
@@ -67,12 +67,15 @@ fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
     });
     const rng = prng.random();
 
-    try printHeader(w);
     for (0..iters) |it| {
-        try w.print("{d},", .{it + 1});
+        try w.print("{d},{d},", .{allocSize,it + 1});
         for (algs) |alg| {
             rng.bytes(std.mem.sliceAsBytes(data));
-            const duration = sorter.measure(io, alg.name, alg.alg, data);
+            const duration = sorter.measure(io, alg.name, alg.alg, data) catch |err| {
+                std.log.err("{s} thew: {any}", .{alg.name, err});
+                try w.writeAll("N/A ,");
+                continue;
+            };
             try w.print("{d} ms,", .{duration.toMilliseconds()});
         }
         try w.writeByte('\n');
@@ -91,6 +94,8 @@ pub fn main(init: std.process.Init) !void {
 
     var buffer: [1024]u8 = undefined;
     var writer = file.writerStreaming(init.io, &buffer);
+
+    try printHeader(&writer.interface);
 
     if (cli.minArraySize) |min| {
         try iterate(init.io, &writer.interface, cli.iterations, min);

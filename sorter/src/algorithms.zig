@@ -2,6 +2,8 @@
 const std = @import("std");
 const Io = std.Io;
 
+const allocator = std.heap.page_allocator;
+
 // Using both xor and normal swap prove to be meaningless, almost no visible
 // change was visible in the output .csv so it was decided to use the regular swap.
 inline fn xorSwap(noalias a: *usize, noalias b: *usize) void {
@@ -17,7 +19,7 @@ inline fn swap(noalias a: *usize, noalias b: *usize) void {
 }
 
 /// O(n^2)
-pub fn bubbleSort(data: []usize) void {
+pub fn bubbleSort(data: []usize) !void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -63,7 +65,7 @@ fn bubbleSortSwapMemory(data: []usize) void {
 }
 
 /// O(n^2)
-pub fn selectionSort(data: []usize) void {
+pub fn selectionSort(data: []usize) !void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -83,7 +85,7 @@ pub fn selectionSort(data: []usize) void {
 }
 
 /// O(n^2)
-pub fn insertionSort(data: []usize) void {
+pub fn insertionSort(data: []usize) !void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -107,7 +109,7 @@ pub fn insertionSort(data: []usize) void {
 }
 
 /// O(n log n)
-pub fn quickSort(data: []usize) void {
+pub fn quickSort(data: []usize) !void {
     qSort(data, 0, data.len);
 }
 
@@ -136,7 +138,8 @@ fn qSort(data: []usize, low: usize, high: usize) void {
     qSort(data, mid + 1, high);
 }
 
-pub fn heapSort(data: []usize) void {
+/// O(n log n)
+pub fn heapSort(data: []usize) !void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -174,7 +177,37 @@ fn heapify(data: []usize, n: usize, i: usize) void {
     }
 }
 
-fn testRunner(sortFn: *const fn (d: []usize) void) !void {
+pub fn mergeSort(data: []usize) !void {
+    const scratch = try allocator.alloc(usize, data.len);
+    defer allocator.free(scratch);
+    @memcpy(scratch, data);
+
+    sortInto(data, scratch);
+}
+
+fn sortInto(dst: []usize, src: []usize) void {
+    std.debug.assert(dst.len == src.len);
+    if (dst.len <= 1) return;
+
+    const mid = dst.len / 2;
+
+    sortInto(src[0..mid], dst[0..mid]);
+    sortInto(src[mid..], dst[mid..]);
+
+    var l: usize = 0;
+    var r: usize = mid;
+    for (dst) |*slot| {
+        // optimization proposed by **claude**
+        if (r >= src.len or (l < mid and src[l] <= src[r])) {
+            slot.* = src[l];
+            l += 1;
+        } else {
+            slot.* = src[r];
+            r += 1;
+        }
+    }
+}
+fn testRunner(sortFn: *const fn (d: []usize) anyerror!void) anyerror!void {
     const t = std.testing;
 
     const sortedData = [_]usize{ 1, 12, 15, 42, 50, 89 };
@@ -182,7 +215,7 @@ fn testRunner(sortFn: *const fn (d: []usize) void) !void {
     var hardData = [_]usize{ 1, 15, 42, 12, 89, 50 };
     const softData = &hardData;
 
-    sortFn(softData);
+    try sortFn(softData);
 
     try t.expectEqualSlices(usize, &sortedData, softData);
 }
@@ -193,4 +226,5 @@ test "Test sort functionallity" {
     testRunner(&selectionSort) catch return error.SelectionSort;
     testRunner(&quickSort) catch return error.QuickSort;
     testRunner(&heapSort) catch return error.HeapSort;
+    testRunner(&mergeSort) catch return error.MergeSort;
 }
