@@ -2,6 +2,7 @@ const std = @import("std");
 const Io = std.Io;
 
 pub const Algorithms = @import("algorithms.zig");
+pub const CliArgs = @import("cliArgs.zig").CliArgs;
 
 const TimeStamp = std.Io.Clock.Timestamp;
 const Duration = std.Io.Duration;

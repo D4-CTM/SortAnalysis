@@ -1,11 +1,14 @@
 const std = @import("std");
 const Io = std.Io;
 
-const sorter = @import("sorter");
 const allocator = std.heap.page_allocator;
 
-const Args = std.process.Args.Iterator;
-const eql = std.mem.eql;
+const sorter = @import("sorter");
+
+const Algorithms = struct {
+    name: []const u8,
+    alg: *const fn ([]usize) void,
+};
 
 fn createFile(io: Io, path: []const u8) !Io.File {
     return if (std.fs.path.isAbsolute(path))
@@ -14,133 +17,45 @@ fn createFile(io: Io, path: []const u8) !Io.File {
         try Io.Dir.cwd().createFile(io, path, .{});
 }
 
-fn outCsvHelp() void {
-    std.log.info("[-o|--out-csv] <path to csv ouput>", .{});
-}
+fn prettifyName(comptime name: []const u8) []const u8 {
+    comptime var out: []const u8 = "";
+    out = out ++ [1]u8{std.ascii.toUpper(name[0])};
 
-fn minArraySizeHelp() void {
-    std.log.info("[--min|--min-array-size] <positive integer>", .{});
-}
-
-fn midArraySizeHelp() void {
-    std.log.info("[--mid|--mid-array-size] <positive integer>", .{});
-}
-
-fn maxArraySizeHelp() void {
-    std.log.info("[--max|--max-array-size] <positive integer>", .{});
-}
-
-fn iterationsHelp() void {
-    std.log.info("[-i|--iterations] <positive integer>", .{});
-}
-
-fn help() void {
-    std.log.info("Usage: <path to analyzer> [flags]", .{});
-    std.log.info("Flags usage:", .{});
-    minArraySizeHelp();
-    midArraySizeHelp();
-    maxArraySizeHelp();
-    iterationsHelp();
-    outCsvHelp();
-}
-
-const CliArgs = struct {
-    iterations: u8 = 3,
-    minArraySize: ?u64,
-    midArraySize: ?u64,
-    maxArraySize: ?u64,
-    outCsv: []const u8,
-
-    pub fn parse(args: *Args) !CliArgs {
-        var outCsv: []const u8 = "out.csv";
-        var iterations: u8 = 3;
-        var minArraySize: ?u64 = null;
-        var midArraySize: ?u64 = null;
-        var maxArraySize: ?u64 = null;
-
-        while (args.next()) |next| {
-            const arg: []const u8 = next;
-            if (eql(u8, arg, "-o") or eql(u8, arg, "--out-csv")) {
-                if (args.next()) |csvPath| {
-                    outCsv = csvPath;
-                    continue;
-                }
-
-                outCsvHelp();
-                return error.MissingOutCsvPath;
-            } else if (eql(u8, arg, "--min") or eql(u8, arg, "--min-array-size")) {
-                if (args.next()) |min| {
-                    minArraySize = std.fmt.parseInt(u64, min, 10) catch |err| {
-                        std.log.err("Invalid min size: {s}. Expected positive integer value", .{min});
-                        return err;
-                    };
-                    continue;
-                }
-
-                minArraySizeHelp();
-                return error.MissingMinArraySize;
-            } else if (eql(u8, arg, "--mid") or eql(u8, arg, "--mid-array-size")) {
-                if (args.next()) |min| {
-                    midArraySize = std.fmt.parseInt(u64, min, 10) catch |err| {
-                        std.log.err("Invalid mid size: {s}. Expected positive integer value", .{min});
-                        return err;
-                    };
-                    continue;
-                }
-
-                midArraySizeHelp();
-                return error.MissingMidArraySize;
-            } else if (eql(u8, arg, "--max") or eql(u8, arg, "--max-array-size")) {
-                if (args.next()) |min| {
-                    maxArraySize = std.fmt.parseInt(u64, min, 10) catch |err| {
-                        std.log.err("Invalid max size: {s}. Expected positive integer value", .{min});
-                        return err;
-                    };
-                    continue;
-                }
-
-                maxArraySizeHelp();
-                return error.MissingMaxArraySize;
-            } else if (eql(u8, arg, "-i") or eql(u8, arg, "--iterations")) {
-                if (args.next()) |min| {
-                    iterations = std.fmt.parseInt(u8, min, 10) catch |err| {
-                        std.log.err("Invalid iterations: {s}. Expected positive integer value", .{min});
-                        return err;
-                    };
-                    continue;
-                }
-
-                iterationsHelp();
-                return error.MissingIterations;
-            }
+    inline for (name[1..name.len]) |ch| {
+        if (std.ascii.isUpper(ch)) {
+            out = out ++ " " ++ [1]u8{std.ascii.toUpper(ch)};
+            continue;
         }
 
-        if (minArraySize == null and midArraySize == null and maxArraySize == null) {
-            std.log.err("Expected at least one array size defined: [--min|--mid|--max] <positive integer>", .{});
-            return error.MissingArraySize;
-        }
+        out = out ++ [1]u8{ch};
+    }
 
-        if (iterations == 0) {
-            std.log.err("Expected iterations to be greater than 0: [-i|--iterations] <positive integer greater than 0>", .{});
-            return error.InvalidIteration;
-        }
+    return out;
+}
 
-        return .{
-            .minArraySize = minArraySize,
-            .midArraySize = midArraySize,
-            .maxArraySize = maxArraySize,
-            .iterations = iterations,
-            .outCsv = outCsv,
+const algs: []const Algorithms = val: {
+    const t = @typeInfo(sorter.Algorithms).@"struct";
+    var algsR: [t.decl_names.len]Algorithms = undefined;
+
+    for (t.decl_names, 0..) |declName, idx| {
+        algsR[idx] = .{
+            .name = prettifyName(declName),
+            .alg = &@field(sorter.Algorithms, declName),
         };
     }
+
+    const final = algsR;
+    break :val &final;
 };
 
-const Algorithms = struct { name: []const u8, alg: *const fn ([]usize) void };
+fn printHeader(w: *Io.Writer) !void {
+    comptime var names: []const u8 = "";
+    inline for (algs) |alg| {
+        names = names ++ alg.name ++ " Ms,";
+    }
 
-const algs = [_]Algorithms{
-    .{ .name = "Bubble Sort", .alg = &sorter.Algorithms.bubbleSort },
-    .{ .name = "Insertion Sort", .alg = &sorter.Algorithms.insertionSort },
-};
+    try w.print("Iteration," ++ names ++ "\n", .{});
+}
 
 fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
     const data = try allocator.alloc(usize, allocSize);
@@ -152,13 +67,13 @@ fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
     });
     const rng = prng.random();
 
-    try w.print("iteration,bubble_sort_ms,insertion_sort_ms\n", .{});
+    try printHeader(w);
     for (0..iters) |it| {
-        try w.print("{d},", .{it+1});
+        try w.print("{d},", .{it + 1});
         for (algs) |alg| {
             rng.bytes(std.mem.sliceAsBytes(data));
             const duration = sorter.measure(io, alg.name, alg.alg, data);
-            try w.print("{d},", .{ duration.toMilliseconds() });
+            try w.print("{d} ms,", .{duration.toMilliseconds()});
         }
         try w.writeByte('\n');
         try w.flush();
@@ -169,7 +84,7 @@ pub fn main(init: std.process.Init) !void {
     var args = try init.minimal.args.iterateAllocator(allocator);
     defer args.deinit();
 
-    const cli = try CliArgs.parse(&args);
+    const cli = try sorter.CliArgs.parse(&args);
 
     var file = try createFile(init.io, cli.outCsv);
     defer file.close(init.io);
