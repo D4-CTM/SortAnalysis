@@ -39,7 +39,7 @@ pub fn bubbleSort(data: []usize) void {
 
 /// O(n^2)
 /// As found in geeksforgeeks. It knows if the elements in the array where
-/// swapped and can exit early. For all intends and porpuses this is just 
+/// swapped and can exit early. For all intends and porpuses this is just
 /// to see if it really makes any difference. Remove the `pub` modifier and recompile
 /// to hide it in the results.
 fn bubbleSortSwapMemory(data: []usize) void {
@@ -59,6 +59,26 @@ fn bubbleSortSwapMemory(data: []usize) void {
 
         if (!swapped)
             return;
+    }
+}
+
+/// O(n^2)
+pub fn selectionSort(data: []usize) void {
+    const len = data.len;
+    if (len <= 1)
+        return;
+
+    var minIdx: usize = 0;
+    for (0..len - 1) |i| {
+        minIdx = i;
+
+        for ((i + 1)..len) |j| {
+            if (data[j] < data[minIdx]) {
+                minIdx = j;
+            }
+        }
+
+        swap(&data[i], &data[minIdx]);
     }
 }
 
@@ -88,32 +108,70 @@ pub fn insertionSort(data: []usize) void {
 
 /// O(n log n)
 pub fn quickSort(data: []usize) void {
-    qSort(data, 0, data.len);   
+    qSort(data, 0, data.len);
 }
 
 fn partition(data: []usize, low: usize, high: usize) usize {
-    const pi = data[high-1];
+    const pi = data[high - 1];
     var i: usize = low;
 
     for (low..high) |j| {
         if (data[j] < pi) {
             swap(&data[i], &data[j]);
-            i+=1;
+            i += 1;
         }
     }
 
-    swap(&data[i], &data[high-1]);
+    swap(&data[i], &data[high - 1]);
     return i;
 }
 
 fn qSort(data: []usize, low: usize, high: usize) void {
     if (low >= high)
-        return ;
+        return;
 
     const mid = partition(data, low, high);
 
     qSort(data, low, mid);
-    qSort(data, mid+1, high);
+    qSort(data, mid + 1, high);
+}
+
+pub fn heapSort(data: []usize) void {
+    const len = data.len;
+    if (len <= 1)
+        return;
+
+    var max = (len / 2);
+    while (max > 0) {
+        max -= 1;
+        heapify(data, len, max);
+    }
+
+    var end = len - 1;
+    while (end > 0) : (end -= 1) {
+        swap(&data[0], &data[end]);
+
+        heapify(data, end, 0);
+    }
+}
+
+fn heapify(data: []usize, n: usize, i: usize) void {
+    var largest = i;
+
+    const l = 2 * i + 1;
+    const r = 2 * i + 2;
+
+    if (l < n and data[l] > data[largest])
+        largest = l;
+
+    if (r < n and data[r] > data[largest])
+        largest = r;
+
+    if (largest != i) {
+        swap(&data[i], &data[largest]);
+
+        heapify(data, n, largest);
+    }
 }
 
 fn testRunner(sortFn: *const fn (d: []usize) void) !void {
@@ -126,13 +184,13 @@ fn testRunner(sortFn: *const fn (d: []usize) void) !void {
 
     sortFn(softData);
 
-    for (sortedData, softData) |e, a| {
-        try t.expectEqual(e, a);
-    }
+    try t.expectEqualSlices(usize, &sortedData, softData);
 }
 
 test "Test sort functionallity" {
-    try testRunner(&bubbleSort);
-    try testRunner(&insertionSort);
-    try testRunner(&quickSort);
+    testRunner(&bubbleSort) catch return error.BubbleSort;
+    testRunner(&insertionSort) catch return error.InsertionSort;
+    testRunner(&selectionSort) catch return error.SelectionSort;
+    testRunner(&quickSort) catch return error.QuickSort;
+    testRunner(&heapSort) catch return error.HeapSort;
 }
