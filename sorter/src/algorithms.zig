@@ -80,7 +80,8 @@ pub fn selectionSort(data: []usize) !void {
             }
         }
 
-        swap(&data[i], &data[minIdx]);
+        if (minIdx != i)
+            swap(&data[i], &data[minIdx]);
     }
 }
 

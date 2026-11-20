@@ -13,7 +13,8 @@ fn createFile(io: Io, path: []const u8) !Io.File {
 }
 
 const Algorithms = struct {
-    name: []const u8,
+    prettyName: []const u8,
+    rawName: []const u8,
     alg: *const fn ([]usize) anyerror!void,
 };
 
@@ -37,10 +38,11 @@ const algs: []const Algorithms = val: {
     const t = @typeInfo(sorter.Algorithms).@"struct";
     var algsR: [t.decl_names.len]Algorithms = undefined;
 
-    for (t.decl_names, 0..) |declName, idx| {
+    for (t.decl_names, 0..) |decl, idx| {
         algsR[idx] = .{
-            .name = prettifyName(declName),
-            .alg = &@field(sorter.Algorithms, declName),
+            .prettyName = prettifyName(decl),
+            .rawName = std.mem.trimEnd(u8, decl, "Sort"),
+            .alg = &@field(sorter.Algorithms, decl),
         };
     }
 
@@ -51,13 +53,13 @@ const algs: []const Algorithms = val: {
 fn printHeader(w: *Io.Writer) !void {
     comptime var names: []const u8 = "";
     inline for (algs) |alg| {
-        names = names ++ alg.name ++ " Ms,";
+        names = names ++ "," ++ alg.prettyName ++ " Ms";
     }
 
-    try w.writeAll("DataSize,Iteration," ++ names ++ "\n");
+    try w.writeAll("DataSize,Iteration" ++ names ++ "\n");
 }
 
-fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
+fn iterate(io: Io, w: *Io.Writer, skip: []const u8, iters: u16, allocSize: u64) !void {
     const data = try allocator.alloc(usize, allocSize);
     defer allocator.free(data);
 
@@ -68,15 +70,21 @@ fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
     const rng = prng.random();
 
     for (0..iters) |it| {
-        try w.print("{d},{d},", .{allocSize,it + 1});
+        try w.print("{d},{d}", .{ allocSize, it + 1 });
         for (algs) |alg| {
+            if (std.mem.find(u8, skip, alg.rawName)) |_| {
+                try w.writeAll(",skipped");
+                continue;
+            }
             rng.bytes(std.mem.sliceAsBytes(data));
-            const duration = sorter.measure(io, alg.name, alg.alg, data) catch |err| {
-                std.log.err("{s} thew: {any}", .{alg.name, err});
-                try w.writeAll("N/A ,");
+
+            const duration = sorter.measure(io, alg.prettyName, alg.alg, data) catch |err| {
+                std.log.err(",{s} threw: {any}", .{ alg.prettyName, err });
+                try w.writeAll(",N/A");
                 continue;
             };
-            try w.print("{d} ms,", .{duration.toMilliseconds()});
+
+            try w.print(",{d} ms", .{duration.toMilliseconds()});
         }
         try w.writeByte('\n');
         try w.flush();
@@ -98,15 +106,15 @@ pub fn main(init: std.process.Init) !void {
     try printHeader(&writer.interface);
 
     if (cli.minArraySize) |min| {
-        try iterate(init.io, &writer.interface, cli.iterations, min);
+        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, min);
     }
 
     if (cli.midArraySize) |mid| {
-        try iterate(init.io, &writer.interface, cli.iterations, mid);
+        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, mid);
     }
 
     if (cli.maxArraySize) |max| {
-        try iterate(init.io, &writer.interface, cli.iterations, max);
+        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, max);
     }
 
     try writer.interface.flush();

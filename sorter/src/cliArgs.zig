@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const algorithms = @import("algorithms.zig");
+
 const Args = std.process.Args.Iterator;
 const eql = std.mem.eql;
 const Io = std.Io;
@@ -24,6 +26,14 @@ fn iterationsHelp() void {
     std.log.info("[-i|--iterations] <positive integer>", .{});
 }
 
+fn skipHelp() void {
+    std.log.info("[-s|--skip] <algorithms separated by comma>", .{});
+    std.log.info("\t Algorithms:", .{});
+    inline for (@typeInfo(algorithms).@"struct".decl_names) |decl| { 
+        std.log.info("\t\t{s}", .{std.mem.trimEnd(u8, decl, "Sort")});
+    }
+}
+
 fn help() void {
     std.log.info("Usage: <path to analyzer> [flags]", .{});
     std.log.info("Flags usage:", .{});
@@ -32,6 +42,7 @@ fn help() void {
     maxArraySizeHelp();
     iterationsHelp();
     outCsvHelp();
+    skipHelp();
 }
 
 pub const CliArgs = struct {
@@ -39,10 +50,12 @@ pub const CliArgs = struct {
     minArraySize: ?u64,
     midArraySize: ?u64,
     maxArraySize: ?u64,
+    skip: []const u8 = "",
     outCsv: []const u8,
 
     pub fn parse(args: *Args) !CliArgs {
         var outCsv: []const u8 = "out.csv";
+        var skip: []const u8 = "";
         var iterations: u8 = 3;
         var minArraySize: ?u64 = null;
         var midArraySize: ?u64 = null;
@@ -57,7 +70,7 @@ pub const CliArgs = struct {
                 }
 
                 outCsvHelp();
-                return error.MissingOutCsvPath;
+                return error.MissingOutCsvPathArg;
             } else if (eql(u8, arg, "--min") or eql(u8, arg, "--min-array-size")) {
                 if (args.next()) |min| {
                     minArraySize = std.fmt.parseInt(u64, min, 10) catch |err| {
@@ -68,7 +81,7 @@ pub const CliArgs = struct {
                 }
 
                 minArraySizeHelp();
-                return error.MissingMinArraySize;
+                return error.MissingMinArraySizeArg;
             } else if (eql(u8, arg, "--mid") or eql(u8, arg, "--mid-array-size")) {
                 if (args.next()) |min| {
                     midArraySize = std.fmt.parseInt(u64, min, 10) catch |err| {
@@ -90,7 +103,7 @@ pub const CliArgs = struct {
                 }
 
                 maxArraySizeHelp();
-                return error.MissingMaxArraySize;
+                return error.MissingMaxArraySizeArg;
             } else if (eql(u8, arg, "-i") or eql(u8, arg, "--iterations")) {
                 if (args.next()) |min| {
                     iterations = std.fmt.parseInt(u8, min, 10) catch |err| {
@@ -101,7 +114,17 @@ pub const CliArgs = struct {
                 }
 
                 iterationsHelp();
-                return error.MissingIterations;
+                return error.MissingIterationsArg;
+            } else if (eql(u8, arg, "-s") or eql(u8, arg, "--skip")) {
+                if (args.next()) |skipArg| {
+                    skip = skipArg;
+                    continue;
+                }
+                
+                skipHelp();
+                return error.MissingSkipArg;
+            } else if (eql(u8, arg, "-h") or eql(u8, arg, "--help")) {
+                help();
             }
         }
 
@@ -120,6 +143,7 @@ pub const CliArgs = struct {
             .midArraySize = midArraySize,
             .maxArraySize = maxArraySize,
             .iterations = iterations,
+            .skip = skip,
             .outCsv = outCsv,
         };
     }

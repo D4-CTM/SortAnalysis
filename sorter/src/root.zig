@@ -11,7 +11,7 @@ const Duration = std.Io.Duration;
 /// however, it was tested the other way around and there was no visible difference so it was kept this way
 /// as it was already made.
 pub fn measure(io: Io, name: []const u8, alg: *const fn([]usize) anyerror!void, arg: []usize) !Duration {
-    std.log.info("Measuring: {s} with {d} array size", .{name, arg.len});
+    std.log.info("Measuring: {s} with {d} elements", .{name, arg.len});
     const start = TimeStamp.now(io, .awake);
     try alg(arg);
     const end = TimeStamp.now(io, .awake);
