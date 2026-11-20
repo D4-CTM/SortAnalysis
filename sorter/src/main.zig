@@ -139,6 +139,7 @@ const Algorithms = struct { name: []const u8, alg: *const fn ([]usize) void };
 
 const algs = [_]Algorithms{
     .{ .name = "Bubble Sort", .alg = &sorter.Algorithms.bubbleSort },
+    .{ .name = "Insertion Sort", .alg = &sorter.Algorithms.insertionSort },
 };
 
 fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
