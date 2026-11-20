@@ -152,7 +152,7 @@ fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
     });
     const rng = prng.random();
 
-    try w.print("data size,{d}\n", .{allocSize});
+    try w.print("\ndata size,{d}\n", .{allocSize});
     try w.print("iteration,bubble sort\n", .{});
     for (0..iters) |it| {
         try w.print("{d},", .{it});
@@ -165,8 +165,6 @@ fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {
         try w.writeByte('\n');
         try w.flush();
     }
-    try w.writeByte('\n');
-    try w.flush();
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -191,7 +189,7 @@ pub fn main(init: std.process.Init) !void {
         const md = yd.calculateMonthDay();
         const ds = es.getDaySeconds();
 
-        try writer.interface.print("{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}\n\n", .{
+        try writer.interface.print("{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}\n", .{
             yd.year,              md.month.numeric(),      md.day_index + 1,
             ds.getHoursIntoDay(), ds.getMinutesIntoHour(), ds.getSecondsIntoMinute(),
         });
