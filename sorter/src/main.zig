@@ -54,7 +54,7 @@ fn printHeader(w: *Io.Writer) !void {
         names = names ++ alg.name ++ " Ms,";
     }
 
-    try w.print("Iteration," ++ names ++ "\n", .{});
+    try w.writeAll("Iteration," ++ names ++ "\n");
 }
 
 fn iterate(io: Io, w: *Io.Writer, iters: u16, allocSize: u64) !void {

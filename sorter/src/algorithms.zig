@@ -22,12 +22,43 @@ pub fn bubbleSort(data: []usize) void {
     if (len <= 1)
         return;
 
-    for (0..(len-1)) |i| {
-        for (0..(len-i-1)) |j| {
-            if (data[j] > data[j+1]) {
-                swap(&data[j], &data[j+1]);
+    var swapped = false;
+    for (0..(len - 1)) |i| {
+        swapped = false;
+        for (0..(len - i - 1)) |j| {
+            if (data[j] > data[j + 1]) {
+                swap(&data[j], &data[j + 1]);
+                swapped = true;
             }
         }
+
+        if (!swapped)
+            return;
+    }
+}
+
+/// O(n^2)
+/// As found in geeksforgeeks. It knows if the elements in the array where
+/// swapped and can exit early. For all intends and porpuses this is just 
+/// to see if it really makes any difference. Remove the `pub` modifier and recompile
+/// to hide it in the results.
+fn bubbleSortSwapMemory(data: []usize) void {
+    const len = data.len;
+    if (len <= 1)
+        return;
+
+    var swapped = false;
+    for (0..(len - 1)) |i| {
+        swapped = false;
+        for (0..(len - i - 1)) |j| {
+            if (data[j] > data[j + 1]) {
+                swap(&data[j], &data[j + 1]);
+                swapped = true;
+            }
+        }
+
+        if (!swapped)
+            return;
     }
 }
 
@@ -55,7 +86,37 @@ pub fn insertionSort(data: []usize) void {
     }
 }
 
-fn testRunner(sortFn: *const fn(d: []usize) void) !void {
+/// O(n log n)
+pub fn quickSort(data: []usize) void {
+    qSort(data, 0, data.len);   
+}
+
+fn partition(data: []usize, low: usize, high: usize) usize {
+    const pi = data[high-1];
+    var i: usize = low;
+
+    for (low..high) |j| {
+        if (data[j] < pi) {
+            swap(&data[i], &data[j]);
+            i+=1;
+        }
+    }
+
+    swap(&data[i], &data[high-1]);
+    return i;
+}
+
+fn qSort(data: []usize, low: usize, high: usize) void {
+    if (low >= high)
+        return ;
+
+    const mid = partition(data, low, high);
+
+    qSort(data, low, mid);
+    qSort(data, mid+1, high);
+}
+
+fn testRunner(sortFn: *const fn (d: []usize) void) !void {
     const t = std.testing;
 
     const sortedData = [_]usize{ 1, 12, 15, 42, 50, 89 };
@@ -70,7 +131,8 @@ fn testRunner(sortFn: *const fn(d: []usize) void) !void {
     }
 }
 
-test "Test sorts" {
+test "Test sort functionallity" {
     try testRunner(&bubbleSort);
     try testRunner(&insertionSort);
+    try testRunner(&quickSort);
 }
