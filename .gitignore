@@ -1,3 +1,7 @@
 **/zig-out/
 **/.zig-cache/
 **/*.csv
+**/*.xlsx
+**/.venv
+**/normalizer.egg-info/
+**/__pycache__/

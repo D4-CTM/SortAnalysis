@@ -91,6 +91,13 @@ fn iterate(io: Io, w: *Io.Writer, skip: []const u8, iters: u16, allocSize: u64) 
     }
 }
 
+const gib: comptime_float = 1024 * 1024 * 1024;
+
+fn gibConsumption(size: usize) void {
+    const byteConsumed: f32 = @floatFromInt(@sizeOf(usize) * size);
+    std.log.info("Gibs required: {d:.2}", .{byteConsumed/(gib)});
+}
+
 pub fn main(init: std.process.Init) !void {
     var args = try init.minimal.args.iterateAllocator(allocator);
     defer args.deinit();
@@ -106,14 +113,17 @@ pub fn main(init: std.process.Init) !void {
     try printHeader(&writer.interface);
 
     if (cli.minArraySize) |min| {
+        gibConsumption(min);
         try iterate(init.io, &writer.interface, cli.skip, cli.iterations, min);
     }
 
     if (cli.midArraySize) |mid| {
+        gibConsumption(mid);
         try iterate(init.io, &writer.interface, cli.skip, cli.iterations, mid);
     }
 
     if (cli.maxArraySize) |max| {
+        gibConsumption(max);
         try iterate(init.io, &writer.interface, cli.skip, cli.iterations, max);
     }
 
