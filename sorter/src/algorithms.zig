@@ -91,21 +91,15 @@ pub fn insertionSort(data: []usize) !void {
     if (len <= 1)
         return;
 
-    var j: usize = 0;
     for (1..len) |i| {
         const key = data[i];
-        j = i - 1;
 
-        while (j >= 0 and data[j] > key) {
-            data[j + 1] = data[j];
-
-            if (j == 0)
-                break;
-
-            j -= 1;
+        var j = i;
+        while (j > 0 and data[j - 1] > key) : (j -= 1) {
+            data[j] = data[j - 1];
         }
 
-        data[j + 1] = key;
+        data[j] = key;
     }
 }
 
@@ -208,24 +202,122 @@ fn sortInto(dst: []usize, src: []usize) void {
         }
     }
 }
-fn testRunner(sortFn: *const fn (d: []usize) anyerror!void) anyerror!void {
-    const t = std.testing;
+// ---------------------------------------------------------------------------
+// Tests
+//
+// Every `pub` sort in this file is picked up automatically (same reflection
+// `main.zig` uses), so a newly added algorithm is tested without touching
+// anything here. The expected output always comes from `std.mem.sort`, which
+// checks both that the result is ordered and that it is a permutation of the
+// input (nothing lost, duplicated or invented).
+// ---------------------------------------------------------------------------
 
-    const sortedData = [_]usize{ 1, 12, 15, 42, 50, 89 };
+const testing = std.testing;
 
-    var hardData = [_]usize{ 1, 15, 42, 12, 89, 50 };
-    const softData = &hardData;
+const SortFn = *const fn ([]usize) anyerror!void;
 
-    try sortFn(softData);
+const TestAlg = struct { name: []const u8, sort: SortFn };
 
-    try t.expectEqualSlices(usize, &sortedData, softData);
+const test_algs: []const TestAlg = val: {
+    const decls = @typeInfo(@This()).@"struct".decl_names;
+    var out: [decls.len]TestAlg = undefined;
+    for (decls, 0..) |decl, i| {
+        out[i] = .{ .name = decl, .sort = &@field(@This(), decl) };
+    }
+    const final = out;
+    break :val &final;
+};
+
+/// Sorts a copy of `input` with every algorithm and compares it with
+/// `std.mem.sort`. On failure, prints which algorithm and case broke.
+fn expectSortsLikeStd(case: []const u8, input: []const usize) !void {
+    const expected = try testing.allocator.dupe(usize, input);
+    defer testing.allocator.free(expected);
+    std.mem.sort(usize, expected, {}, std.sort.asc(usize));
+
+    const actual = try testing.allocator.alloc(usize, input.len);
+    defer testing.allocator.free(actual);
+
+    for (test_algs) |alg| {
+        @memcpy(actual, input);
+        errdefer std.debug.print("\n{s} failed on case \"{s}\" (len {d})\n", .{ alg.name, case, input.len });
+        try alg.sort(actual);
+        try testing.expectEqualSlices(usize, expected, actual);
+    }
 }
 
-test "Test sort functionallity" {
-    testRunner(&bubbleSort) catch return error.BubbleSort;
-    testRunner(&insertionSort) catch return error.InsertionSort;
-    testRunner(&selectionSort) catch return error.SelectionSort;
-    testRunner(&quickSort) catch return error.QuickSort;
-    testRunner(&heapSort) catch return error.HeapSort;
-    testRunner(&mergeSort) catch return error.MergeSort;
+test "all algorithms are discovered" {
+    try testing.expectEqual(6, test_algs.len);
+}
+
+test "original sample" {
+    try expectSortsLikeStd("sample", &.{ 1, 15, 42, 12, 89, 50 });
+}
+
+test "trivial inputs: empty, one and two elements" {
+    try expectSortsLikeStd("empty", &.{});
+    try expectSortsLikeStd("single", &.{42});
+    try expectSortsLikeStd("pair sorted", &.{ 1, 2 });
+    try expectSortsLikeStd("pair reversed", &.{ 2, 1 });
+    try expectSortsLikeStd("pair equal", &.{ 7, 7 });
+    try expectSortsLikeStd("three reversed", &.{ 3, 2, 1 });
+}
+
+test "already sorted and reversed" {
+    var sorted: [1000]usize = undefined;
+    for (&sorted, 0..) |*v, i| v.* = i;
+    try expectSortsLikeStd("sorted", &sorted);
+
+    var reversed: [1000]usize = undefined;
+    for (&reversed, 0..) |*v, i| v.* = reversed.len - i;
+    try expectSortsLikeStd("reversed", &reversed);
+}
+
+test "duplicates" {
+    const all_equal: [500]usize = @splat(9);
+    try expectSortsLikeStd("all equal", &all_equal);
+
+    var few_values: [1000]usize = undefined;
+    for (&few_values, 0..) |*v, i| v.* = (i * 7) % 3;
+    try expectSortsLikeStd("only 0, 1 and 2", &few_values);
+
+    try expectSortsLikeStd("duplicated pairs", &.{ 5, 1, 5, 1, 3, 3, 0, 0 });
+}
+
+test "extreme values" {
+    const max = std.math.maxInt(usize);
+    try expectSortsLikeStd("min and max", &.{ max, 0, max - 1, 1, max, 0 });
+    try expectSortsLikeStd("only max", &.{ max, max, max });
+}
+
+test "organ pipe and sawtooth patterns" {
+    var organ: [999]usize = undefined;
+    for (&organ, 0..) |*v, i| v.* = @min(i, organ.len - i);
+    try expectSortsLikeStd("organ pipe", &organ);
+
+    var saw: [1000]usize = undefined;
+    for (&saw, 0..) |*v, i| v.* = i % 37;
+    try expectSortsLikeStd("sawtooth", &saw);
+}
+
+test "random data, many sizes and seeds" {
+    // Fixed seed so a failure can be reproduced.
+    var prng = std.Random.DefaultPrng.init(0x5eed_5eed);
+    const rng = prng.random();
+
+    const sizes = [_]usize{ 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 31, 32, 33, 100, 127, 128, 129, 1000, 1023, 1024, 1025, 4096 };
+    for (sizes) |size| {
+        const data = try testing.allocator.alloc(usize, size);
+        defer testing.allocator.free(data);
+
+        for (0..5) |_| {
+            // Full range: same kind of data the benchmark uses.
+            rng.bytes(std.mem.sliceAsBytes(data));
+            try expectSortsLikeStd("random full range", data);
+
+            // Small range: forces lots of duplicates.
+            for (data) |*v| v.* = rng.uintLessThan(usize, 10);
+            try expectSortsLikeStd("random small range", data);
+        }
+    }
 }

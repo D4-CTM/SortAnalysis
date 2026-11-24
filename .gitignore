@@ -5,3 +5,4 @@
 **/.venv
 **/normalizer.egg-info/
 **/__pycache__/
+**/.zig/

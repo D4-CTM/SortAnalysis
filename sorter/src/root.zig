@@ -18,3 +18,10 @@ pub fn measure(io: Io, name: []const u8, alg: *const fn([]usize) anyerror!void, 
 
     return start.durationTo(end).raw;
 }
+
+// Zig only runs the tests of files referenced from a test block; without
+// this, `zig build test` silently runs 0 tests.
+test {
+    _ = Algorithms;
+    _ = @import("cliArgs.zig");
+}

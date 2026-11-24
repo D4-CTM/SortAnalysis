@@ -102,7 +102,7 @@ pub fn main(init: std.process.Init) !void {
     var args = try init.minimal.args.iterateAllocator(allocator);
     defer args.deinit();
 
-    const cli = try sorter.CliArgs.parse(&args);
+    const cli = try sorter.CliArgs.parse(init.io, &args);
 
     var file = try createFile(init.io, cli.outCsv);
     defer file.close(init.io);
