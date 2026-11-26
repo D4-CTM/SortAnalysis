@@ -125,7 +125,7 @@ Que se prueba:
   resultado se compara contra `std.mem.sort`, lo que verifica que quede
   ordenado **y** que sea una permutacion de la entrada. Casos: arreglos vacios,
   de 1 y 2 elementos, ya ordenados, invertidos, todos iguales, muchos
-  duplicados, valores extremos (`0` y `maxInt(usize)`), patrones (organ pipe,
+  duplicados, valores extremos (`0` y `maxInt(i32)`), patrones (organ pipe,
   sawtooth) y datos aleatorios con semilla fija en tamaños de 2 a 4096.
 - **CLI** (`src/cliArgs.zig`): valores por defecto, flags cortos y largos,
   orden de los flags, flags sin valor, numeros invalidos, negativos o fuera de
@@ -147,13 +147,15 @@ Dataset sizes (at least one is required; each is a positive integer):
       --mid, --mid-array-size <n>  Number of elements of the "medium" dataset.
       --max, --max-array-size <n>  Number of elements of the "large" dataset.
 
-  Each element is a usize (8 bytes), so 1,000,000,000 elements need ~7.45 GiB of RAM.
+  Each element is an i32 (4 bytes), so 1,000,000,000 elements need ~3.73 GiB of RAM.
 
 Options:
   -i, --iterations <n>             Times every algorithm runs per dataset size,
                                    1-255. (default: 3)
   -o, --out-csv <path>             CSV file where results are written.
                                    Relative or absolute path. (default: out.csv)
+  -sd, --seed <n>                  Seed that will be used to fill the dataset,
+                                   Accepts: Binary (0b), Octal (0o), Hex (0x) and decimal formats. (default: 0x5eed)
   -s, --skip <alg[,alg...]>        Algorithms to skip (written as "skipped" in the CSV),
                                    comma separated, lowercase. Available:
                                      - bubble
@@ -178,6 +180,11 @@ Notas:
 - Se debe indicar al menos uno de `--min`, `--mid` o `--max`. Cada tamaño se
   ejecuta `--iterations` veces, y en cada iteracion el arreglo se vuelve a
   llenar con datos aleatorios antes de cada algoritmo.
+- El dato aleatorio es determinista: la semilla por defecto es `0x5eed` y se
+  puede cambiar con `--seed` (acepta decimal, `0x`, `0b` y `0o`). Cada tamaño
+  usa `semilla + tamaño` y cada iteracion suma ademas el numero de iteracion,
+  asi que todos los algoritmos de una misma fila ordenan exactamente el mismo
+  arreglo.
 - El archivo de salida se sobreescribe si ya existe. La carpeta donde se
   escribe **debe existir** (p. ej. `mkdir -p ../executions`).
 - Los algoritmos O(n²) (`bubble`, `selection`, `insertion`) se vuelven

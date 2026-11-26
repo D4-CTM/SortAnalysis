@@ -6,20 +6,20 @@ const allocator = std.heap.page_allocator;
 
 // Using both xor and normal swap prove to be meaningless, almost no visible
 // change was visible in the output .csv so it was decided to use the regular swap.
-inline fn xorSwap(noalias a: *usize, noalias b: *usize) void {
+inline fn xorSwap(noalias a: *i32, noalias b: *i32) void {
     a.* = a.* ^ b.*;
     b.* = a.* ^ b.*;
     a.* = a.* ^ b.*;
 }
 
-inline fn swap(noalias a: *usize, noalias b: *usize) void {
+inline fn swap(noalias a: *i32, noalias b: *i32) void {
     const tmp = a.*;
     a.* = b.*;
     b.* = tmp;
 }
 
 /// O(n^2)
-pub fn bubbleSort(data: []usize) !void {
+pub fn bubbleSort(data: []i32) !void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -44,7 +44,7 @@ pub fn bubbleSort(data: []usize) !void {
 /// swapped and can exit early. For all intends and porpuses this is just
 /// to see if it really makes any difference. Remove the `pub` modifier and recompile
 /// to hide it in the results.
-fn bubbleSortSwapMemory(data: []usize) void {
+fn bubbleSortSwapMemory(data: []i32) void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -65,7 +65,7 @@ fn bubbleSortSwapMemory(data: []usize) void {
 }
 
 /// O(n^2)
-pub fn selectionSort(data: []usize) !void {
+pub fn selectionSort(data: []i32) !void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -86,7 +86,7 @@ pub fn selectionSort(data: []usize) !void {
 }
 
 /// O(n^2)
-pub fn insertionSort(data: []usize) !void {
+pub fn insertionSort(data: []i32) !void {
     const len = data.len;
     if (len <= 1)
         return;
@@ -104,11 +104,11 @@ pub fn insertionSort(data: []usize) !void {
 }
 
 /// O(n log n)
-pub fn quickSort(data: []usize) !void {
+pub fn quickSort(data: []i32) !void {
     qSort(data, 0, data.len);
 }
 
-fn partition(data: []usize, low: usize, high: usize) usize {
+fn partition(data: []i32, low: usize, high: usize) usize {
     const pi = data[high - 1];
     var i: usize = low;
 
@@ -123,7 +123,7 @@ fn partition(data: []usize, low: usize, high: usize) usize {
     return i;
 }
 
-fn qSort(data: []usize, low: usize, high: usize) void {
+fn qSort(data: []i32, low: usize, high: usize) void {
     if (low >= high)
         return;
 
@@ -134,12 +134,12 @@ fn qSort(data: []usize, low: usize, high: usize) void {
 }
 
 /// O(n log n)
-pub fn heapSort(data: []usize) !void {
+pub fn heapSort(data: []i32) !void {
     const len = data.len;
     if (len <= 1)
         return;
 
-    var max = (len / 2);
+    var max: usize = (len / 2);
     while (max > 0) {
         max -= 1;
         heapify(data, len, max);
@@ -153,7 +153,7 @@ pub fn heapSort(data: []usize) !void {
     }
 }
 
-fn heapify(data: []usize, n: usize, i: usize) void {
+fn heapify(data: []i32, n: usize, i: usize) void {
     var largest = i;
 
     const l = 2 * i + 1;
@@ -172,15 +172,15 @@ fn heapify(data: []usize, n: usize, i: usize) void {
     }
 }
 
-pub fn mergeSort(data: []usize) !void {
-    const scratch = try allocator.alloc(usize, data.len);
+pub fn mergeSort(data: []i32) !void {
+    const scratch = try allocator.alloc(i32, data.len);
     defer allocator.free(scratch);
     @memcpy(scratch, data);
 
     sortInto(data, scratch);
 }
 
-fn sortInto(dst: []usize, src: []usize) void {
+fn sortInto(dst: []i32, src: []i32) void {
     std.debug.assert(dst.len == src.len);
     if (dst.len <= 1) return;
 
@@ -214,7 +214,7 @@ fn sortInto(dst: []usize, src: []usize) void {
 
 const testing = std.testing;
 
-const SortFn = *const fn ([]usize) anyerror!void;
+const SortFn = *const fn ([]i32) anyerror!void;
 
 const TestAlg = struct { name: []const u8, sort: SortFn };
 
@@ -230,19 +230,19 @@ const test_algs: []const TestAlg = val: {
 
 /// Sorts a copy of `input` with every algorithm and compares it with
 /// `std.mem.sort`. On failure, prints which algorithm and case broke.
-fn expectSortsLikeStd(case: []const u8, input: []const usize) !void {
-    const expected = try testing.allocator.dupe(usize, input);
+fn expectSortsLikeStd(case: []const u8, input: []const i32) !void {
+    const expected = try testing.allocator.dupe(i32, input);
     defer testing.allocator.free(expected);
-    std.mem.sort(usize, expected, {}, std.sort.asc(usize));
+    std.mem.sort(i32, expected, {}, std.sort.asc(i32));
 
-    const actual = try testing.allocator.alloc(usize, input.len);
+    const actual = try testing.allocator.alloc(i32, input.len);
     defer testing.allocator.free(actual);
 
     for (test_algs) |alg| {
         @memcpy(actual, input);
         errdefer std.debug.print("\n{s} failed on case \"{s}\" (len {d})\n", .{ alg.name, case, input.len });
         try alg.sort(actual);
-        try testing.expectEqualSlices(usize, expected, actual);
+        try testing.expectEqualSlices(i32, expected, actual);
     }
 }
 
@@ -264,39 +264,39 @@ test "trivial inputs: empty, one and two elements" {
 }
 
 test "already sorted and reversed" {
-    var sorted: [1000]usize = undefined;
-    for (&sorted, 0..) |*v, i| v.* = i;
+    var sorted: [1000]i32 = undefined;
+    for (&sorted, 0..) |*v, i| v.* = @intCast(i);
     try expectSortsLikeStd("sorted", &sorted);
 
-    var reversed: [1000]usize = undefined;
-    for (&reversed, 0..) |*v, i| v.* = reversed.len - i;
+    var reversed: [1000]i32 = undefined;
+    for (&reversed, 0..) |*v, i| v.* = @intCast(reversed.len - i);
     try expectSortsLikeStd("reversed", &reversed);
 }
 
 test "duplicates" {
-    const all_equal: [500]usize = @splat(9);
+    const all_equal: [500]i32 = @splat(9);
     try expectSortsLikeStd("all equal", &all_equal);
 
-    var few_values: [1000]usize = undefined;
-    for (&few_values, 0..) |*v, i| v.* = (i * 7) % 3;
+    var few_values: [1000]i32 = undefined;
+    for (&few_values, 0..) |*v, i| v.* = @intCast((i * 7) % 3);
     try expectSortsLikeStd("only 0, 1 and 2", &few_values);
 
     try expectSortsLikeStd("duplicated pairs", &.{ 5, 1, 5, 1, 3, 3, 0, 0 });
 }
 
 test "extreme values" {
-    const max = std.math.maxInt(usize);
+    const max = std.math.maxInt(i32);
     try expectSortsLikeStd("min and max", &.{ max, 0, max - 1, 1, max, 0 });
     try expectSortsLikeStd("only max", &.{ max, max, max });
 }
 
 test "organ pipe and sawtooth patterns" {
-    var organ: [999]usize = undefined;
-    for (&organ, 0..) |*v, i| v.* = @min(i, organ.len - i);
+    var organ: [999]i32 = undefined;
+    for (&organ, 0..) |*v, i| v.* = @intCast(@min(i, organ.len - i));
     try expectSortsLikeStd("organ pipe", &organ);
 
-    var saw: [1000]usize = undefined;
-    for (&saw, 0..) |*v, i| v.* = i % 37;
+    var saw: [1000]i32 = undefined;
+    for (&saw, 0..) |*v, i| v.* = @intCast(i % 37);
     try expectSortsLikeStd("sawtooth", &saw);
 }
 
@@ -307,7 +307,7 @@ test "random data, many sizes and seeds" {
 
     const sizes = [_]usize{ 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 31, 32, 33, 100, 127, 128, 129, 1000, 1023, 1024, 1025, 4096 };
     for (sizes) |size| {
-        const data = try testing.allocator.alloc(usize, size);
+        const data = try testing.allocator.alloc(i32, size);
         defer testing.allocator.free(data);
 
         for (0..5) |_| {
@@ -316,7 +316,7 @@ test "random data, many sizes and seeds" {
             try expectSortsLikeStd("random full range", data);
 
             // Small range: forces lots of duplicates.
-            for (data) |*v| v.* = rng.uintLessThan(usize, 10);
+            for (data) |*v| v.* = @intCast(rng.uintLessThan(u32, 10));
             try expectSortsLikeStd("random small range", data);
         }
     }

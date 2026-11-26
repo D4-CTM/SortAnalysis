@@ -15,7 +15,7 @@ fn createFile(io: Io, path: []const u8) !Io.File {
 const Algorithms = struct {
     prettyName: []const u8,
     rawName: []const u8,
-    alg: *const fn ([]usize) anyerror!void,
+    alg: *const fn ([]i32) anyerror!void,
 };
 
 fn prettifyName(comptime name: []const u8) []const u8 {
@@ -59,16 +59,12 @@ fn printHeader(w: *Io.Writer) !void {
     try w.writeAll("DataSize,Iteration" ++ names ++ "\n");
 }
 
-fn iterate(io: Io, w: *Io.Writer, skip: []const u8, iters: u16, allocSize: u64) !void {
-    const data = try allocator.alloc(usize, allocSize);
+fn iterate(io: Io, w: *Io.Writer, skip: []const u8, iters: u16, allocSize: u64, seed: u64) !void {
+    const data = try allocator.alloc(i32, allocSize);
     defer allocator.free(data);
 
-    var prng = std.Random.DefaultPrng.init(val: {
-        const now = Io.Clock.real.now(io);
-        break :val @intCast(now.toMicroseconds());
-    });
-    const rng = prng.random();
-
+    var prng = std.Random.DefaultPrng.init(seed);
+    const data_bytes = std.mem.sliceAsBytes(data);
     for (0..iters) |it| {
         try w.print("{d},{d}", .{ allocSize, it + 1 });
         for (algs) |alg| {
@@ -76,7 +72,12 @@ fn iterate(io: Io, w: *Io.Writer, skip: []const u8, iters: u16, allocSize: u64) 
                 try w.writeAll(",skipped");
                 continue;
             }
-            rng.bytes(std.mem.sliceAsBytes(data));
+
+            // Same data for every algorithm in this iteration, different data
+            // between iterations. Filling happens before measuring so it stays
+            // outside the timed section.
+            prng.seed(seed +% @as(u64, @intCast(it)));
+            prng.random().bytes(data_bytes);
 
             const duration = sorter.measure(io, alg.prettyName, alg.alg, data) catch |err| {
                 std.log.err(",{s} threw: {any}", .{ alg.prettyName, err });
@@ -89,13 +90,6 @@ fn iterate(io: Io, w: *Io.Writer, skip: []const u8, iters: u16, allocSize: u64) 
         try w.writeByte('\n');
         try w.flush();
     }
-}
-
-const gib: comptime_float = 1024 * 1024 * 1024;
-
-fn gibConsumption(size: usize) void {
-    const byteConsumed: f32 = @floatFromInt(@sizeOf(usize) * size);
-    std.log.info("Gibs required: {d:.2}", .{byteConsumed/(gib)});
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -113,18 +107,15 @@ pub fn main(init: std.process.Init) !void {
     try printHeader(&writer.interface);
 
     if (cli.minArraySize) |min| {
-        gibConsumption(min);
-        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, min);
+        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, min, cli.seed +% min);
     }
 
     if (cli.midArraySize) |mid| {
-        gibConsumption(mid);
-        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, mid);
+        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, mid, cli.seed +% mid);
     }
 
     if (cli.maxArraySize) |max| {
-        gibConsumption(max);
-        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, max);
+        try iterate(init.io, &writer.interface, cli.skip, cli.iterations, max, cli.seed +% max);
     }
 
     try writer.interface.flush();

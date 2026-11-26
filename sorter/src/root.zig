@@ -10,7 +10,7 @@ const Duration = std.Io.Duration;
 /// Output's duration will be affected by the fact it's a function pointer and not a direct function call,
 /// however, it was tested the other way around and there was no visible difference so it was kept this way
 /// as it was already made.
-pub fn measure(io: Io, name: []const u8, alg: *const fn([]usize) anyerror!void, arg: []usize) !Duration {
+pub fn measure(io: Io, name: []const u8, alg: *const fn([]i32) anyerror!void, arg: []i32) !Duration {
     std.log.info("Measuring: {s} with {d} elements", .{name, arg.len});
     const start = TimeStamp.now(io, .awake);
     try alg(arg);

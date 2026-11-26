@@ -36,6 +36,12 @@ const iterationsHelp =
     \\
 ;
 
+const seedHelp =
+    \\  -sd, --seed <n>                  Seed that will be used to fill the dataset,
+    \\                                   Accepts: Binary (0b), Octal (0o), Hex (0x) and decimal formats. (default: 0x5eed)
+    \\
+;
+
 const skipHelp = val: {
     var out: []const u8 =
         \\  -s, --skip <alg[,alg...]>        Algorithms to skip (written as "skipped" in the CSV),
@@ -59,11 +65,11 @@ const help =
     \\
 ++ minArraySizeHelp ++ midArraySizeHelp ++ maxArraySizeHelp ++
     \\
-    \\  Each element is a usize (8 bytes), so 1,000,000,000 elements need ~7.45 GiB of RAM.
+    \\  Each element is an i32 (4 bytes), so 1,000,000,000 elements need ~3.73 GiB of RAM.
     \\
     \\Options:
     \\
-++ iterationsHelp ++ outCsvHelp ++ skipHelp ++
+++ iterationsHelp ++ outCsvHelp ++ seedHelp ++ skipHelp ++
     \\  -h, --help                       Show this help and exit.
     \\
     \\Output:
@@ -100,6 +106,7 @@ pub const CliArgs = struct {
     minArraySize: ?u64,
     midArraySize: ?u64,
     maxArraySize: ?u64,
+    seed: u64,
     skip: []const u8 = "",
     outCsv: []const u8,
 
@@ -109,6 +116,7 @@ pub const CliArgs = struct {
         var outCsv: []const u8 = "out.csv";
         var skip: []const u8 = "";
         var iterations: u8 = 3;
+        var seed: u64 = 0x5eed;
         var minArraySize: ?u64 = null;
         var midArraySize: ?u64 = null;
         var maxArraySize: ?u64 = null;
@@ -180,6 +188,17 @@ pub const CliArgs = struct {
             } else if (eql(u8, arg, "-h") or eql(u8, arg, "--help")) {
                 writeText(io, Io.File.stdout(), help);
                 std.process.exit(0);
+            } else if (eql(u8, arg, "-sd") or eql(u8, arg, "--seed")) {
+                if (args.next()) |sd| {
+                    seed = std.fmt.parseInt(u64, sd, 0) catch |err| {
+                        logErr("Invalid seed: {s}. Expected positive integer value", .{sd});
+                        return err;
+                    };
+                    continue;
+                }
+                
+                usage(io, seedHelp);
+                return error.MissingSeedArg;
             } else {
                 logErr("Unknown argument: {s}. Use --help to see the available flags", .{arg});
                 return error.UnknownArgument;
@@ -201,6 +220,7 @@ pub const CliArgs = struct {
             .midArraySize = midArraySize,
             .maxArraySize = maxArraySize,
             .iterations = iterations,
+            .seed = seed,
             .skip = skip,
             .outCsv = outCsv,
         };
@@ -239,8 +259,25 @@ test "defaults when only one size is given" {
     try testing.expectEqual(@as(?u64, null), cli.midArraySize);
     try testing.expectEqual(@as(?u64, null), cli.maxArraySize);
     try testing.expectEqual(3, cli.iterations);
+    try testing.expectEqual(@as(u64, 0x5eed), cli.seed);
     try testing.expectEqualStrings("out.csv", cli.outCsv);
     try testing.expectEqualStrings("", cli.skip);
+}
+
+test "seed accepts decimal and prefixed bases" {
+    const cases = [_]struct { cmd: []const u8, value: u64 }{
+        .{ .cmd = "sorter --min 10 -sd 42", .value = 42 },
+        .{ .cmd = "sorter --min 10 --seed 42", .value = 42 },
+        .{ .cmd = "sorter --min 10 --seed 0x2a", .value = 42 },
+        .{ .cmd = "sorter --min 10 --seed 0b101010", .value = 42 },
+        .{ .cmd = "sorter --min 10 --seed 0o52", .value = 42 },
+    };
+    inline for (cases) |case| {
+        var it: TestArgs = undefined;
+        defer it.deinit();
+        const cli = try parseLine(&it, case.cmd);
+        try testing.expectEqual(case.value, cli.seed);
+    }
 }
 
 test "long flags" {
@@ -301,6 +338,8 @@ test "flag without its value" {
     try expectParseError(error.MissingIterationsArg, "sorter --min 1 -i");
     try expectParseError(error.MissingOutCsvPathArg, "sorter --min 1 -o");
     try expectParseError(error.MissingSkipArg, "sorter --min 1 -s");
+    try expectParseError(error.MissingSeedArg, "sorter --min 1 -sd");
+    try expectParseError(error.MissingSeedArg, "sorter --min 1 --seed");
 }
 
 test "invalid numbers" {
@@ -310,6 +349,8 @@ test "invalid numbers" {
     try expectParseError(error.InvalidCharacter, "sorter --min 10 -i three");
     try expectParseError(error.Overflow, "sorter --min 18446744073709551616"); // u64 max + 1
     try expectParseError(error.Overflow, "sorter --min 10 -i 256"); // u8 max + 1
+    try expectParseError(error.InvalidCharacter, "sorter --min 10 --seed xyz");
+    try expectParseError(error.Overflow, "sorter --min 10 --seed 18446744073709551616"); // u64 max + 1
 }
 
 test "zero iterations" {
