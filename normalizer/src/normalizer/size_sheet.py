@@ -6,7 +6,7 @@ from xlsxwriter.utility import xl_col_to_name, xl_rowcol_to_cell
 
 from .notes import NOTES_LABEL, REASON_HEADER
 from .parsing import Dataset
-from .stats import AlgStats, compute_stats
+from .stats import SUB_MS, AlgStats, compute_stats
 from .stats import ranked as rank
 from .xlutil import human_size, ref
 
@@ -49,7 +49,8 @@ def write_size_sheet(report: "Report", name: str, ds: Dataset) -> tuple[list[Alg
 
     # Raw data ----------------------------------------------------------- #
     ws.write(raw_top, 0, "Raw runs", f["section"])
-    ws.write(raw_top, 3, "grey cells = skipped execution", f["hint"])
+    ws.write(raw_top, 3, "grey cells = skipped execution; 0 ms = faster than the 1 ms timer resolution",
+             f["hint"])
     for c, h in enumerate(["Source file", "Run #", "Iteration",
                            *[f"{a} (ms)" for a in report.algorithms]]):
         ws.write(raw_hdr, c, h, f["header"])
@@ -92,8 +93,12 @@ def write_size_sheet(report: "Report", name: str, ds: Dataset) -> tuple[list[Alg
         ws.write_formula(r, 6, f"=MEDIAN({rng})", f["ms_dec"], s.median)
         ws.write_formula(r, 7, f'=IF(COUNT({rng})>1,STDEV({rng}),"")', f["ms_dec"],
                          s.stdev if s.stdev is not None else "")
-        ws.write_formula(r, 8, f"={ds.size}/{mean_cell}/1000", f["tput"], ds.size / s.mean / 1000)
-        ws.write_formula(r, 9, f"={mean_cell}/MIN({mean_col_range})", f["ratio"], s.mean / best_mean)
+        # A 0 ms mean means every run beat the 1 ms timer resolution: throughput and
+        # ratios against it are undefined, so show text instead of #DIV/0!.
+        ws.write_formula(r, 8, f'=IF({mean_cell}>0,{ds.size}/{mean_cell}/1000,"{SUB_MS}")', f["tput"],
+                         ds.size / s.mean / 1000 if s.mean > 0 else SUB_MS)
+        ws.write_formula(r, 9, f'=IF(MIN({mean_col_range})>0,{mean_cell}/MIN({mean_col_range}),"n/a")',
+                         f["ratio"], s.mean / best_mean if best_mean > 0 else "n/a")
         ws.write_formula(r, 10, f"=RANK({mean_cell},{mean_col_range},1)", f["int"], i + 1)
 
     # Skipped executions ------------------------------------------------- #
@@ -122,8 +127,8 @@ def write_size_sheet(report: "Report", name: str, ds: Dataset) -> tuple[list[Alg
     if measured:
         last_ok = stats_first + len(measured) - 1
         cats = ref(name, stats_first, 0, last_ok, 0)
-        spread = max(s.mean for s in measured) / min(s.mean for s in measured)
-        log = spread >= 100
+        # Log axes can't plot 0 ms, so they're only used when every mean is positive.
+        log = measured[0].mean > 0 and measured[-1].mean / measured[0].mean >= 100
 
         bar = report.wb.add_chart({"type": "column"})
         bar.add_series({
@@ -145,21 +150,28 @@ def write_size_sheet(report: "Report", name: str, ds: Dataset) -> tuple[list[Alg
         bar.set_size({"width": 720, "height": 340})
         ws.insert_chart(stats_top, chart_col, bar)
 
-        tput = report.wb.add_chart({"type": "bar"})
-        tput.add_series({
-            "name": "Throughput",
-            "categories": cats,
-            "values": ref(name, stats_first, 8, last_ok, 8),
-            "points": [{"fill": {"color": report.colors[s.name]}} for s in measured],
-            "data_labels": {"value": True, "num_format": "#,##0.00"},
-        })
-        tput.set_title({"name": "Throughput (million elements / second, higher is better)"})
-        tput.set_x_axis({"num_format": "General", "major_gridlines": {"visible": True},
-                         **({"log_base": 10} if log else {})})
-        tput.set_y_axis({"reverse": True})
-        tput.set_legend({"none": True})
-        tput.set_size({"width": 720, "height": 300})
-        ws.insert_chart(stats_top + 18, chart_col, tput)
+        # Sub-millisecond algorithms have no finite throughput; they rank first, so
+        # dropping them keeps the range contiguous.
+        timed = [s for s in measured if s.mean > 0]
+        first_timed = stats_first + len(measured) - len(timed)
+        sub_ms = len(measured) - len(timed)
+        if timed:
+            tput = report.wb.add_chart({"type": "bar"})
+            tput.add_series({
+                "name": "Throughput",
+                "categories": ref(name, first_timed, 0, last_ok, 0),
+                "values": ref(name, first_timed, 8, last_ok, 8),
+                "points": [{"fill": {"color": report.colors[s.name]}} for s in timed],
+                "data_labels": {"value": True, "num_format": "#,##0.00"},
+            })
+            tput.set_title({"name": "Throughput (million elements / second, higher is better)"
+                                    + (f" — {sub_ms} algorithm(s) under 1 ms not shown" if sub_ms else "")})
+            tput.set_x_axis({"num_format": "General", "major_gridlines": {"visible": True},
+                             **({"log_base": 10} if log else {})})
+            tput.set_y_axis({"reverse": True})
+            tput.set_legend({"none": True})
+            tput.set_size({"width": 720, "height": 300})
+            ws.insert_chart(stats_top + 18, chart_col, tput)
 
         if n_runs > 1:
             line = report.wb.add_chart({"type": "line"})

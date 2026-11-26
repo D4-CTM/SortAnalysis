@@ -5,6 +5,9 @@ from dataclasses import dataclass
 
 from .parsing import Dataset
 
+# Shown where a 0 ms mean makes a ratio undefined (the timer has 1 ms resolution).
+SUB_MS = "< 1 ms"
+
 
 @dataclass
 class AlgStats:

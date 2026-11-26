@@ -40,31 +40,6 @@ pub fn bubbleSort(data: []i32) !void {
 }
 
 /// O(n^2)
-/// As found in geeksforgeeks. It knows if the elements in the array where
-/// swapped and can exit early. For all intends and porpuses this is just
-/// to see if it really makes any difference. Remove the `pub` modifier and recompile
-/// to hide it in the results.
-fn bubbleSortSwapMemory(data: []i32) void {
-    const len = data.len;
-    if (len <= 1)
-        return;
-
-    var swapped = false;
-    for (0..(len - 1)) |i| {
-        swapped = false;
-        for (0..(len - i - 1)) |j| {
-            if (data[j] > data[j + 1]) {
-                swap(&data[j], &data[j + 1]);
-                swapped = true;
-            }
-        }
-
-        if (!swapped)
-            return;
-    }
-}
-
-/// O(n^2)
 pub fn selectionSort(data: []i32) !void {
     const len = data.len;
     if (len <= 1)

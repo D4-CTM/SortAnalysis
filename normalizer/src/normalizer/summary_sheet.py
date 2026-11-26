@@ -56,7 +56,7 @@ def write_summary_sheet(report: "Report", ws, datasets: list[Dataset], names: di
         ws.write_formula(r, c, f"={ref(names[size], *mean_pos[size][s.name])}",
                          f["best"] if s.mean == best[size] else f["ms_dec"], s.mean)
 
-    mean_end = matrix(mean_top, "Mean time per dataset size (grey = skipped)", mean_cell)
+    mean_end = matrix(mean_top, "Mean time per dataset size (grey = skipped, 0 ms = under 1 ms)", mean_cell)
 
     def ratio_cell(r, c, size, s: AlgStats):
         if not s.ok:
@@ -65,8 +65,8 @@ def write_summary_sheet(report: "Report", ws, datasets: list[Dataset], names: di
         col = xl_col_to_name(c)
         first, last = mean_top + 3, mean_top + 2 + len(algs)
         mean_ref = xl_rowcol_to_cell(mean_top + 2 + algs.index(s.name), c)
-        ws.write_formula(r, c, f"={mean_ref}/MIN({col}{first}:{col}{last})", f["ratio"],
-                         s.mean / best[size])
+        ws.write_formula(r, c, f'=IF(MIN({col}{first}:{col}{last})>0,{mean_ref}/MIN({col}{first}:{col}{last}),"n/a")',
+                         f["ratio"], s.mean / best[size] if best[size] > 0 else "n/a")
 
     ratio_top = mean_end + 1
     ratio_end = matrix(ratio_top, "Relative to fastest at each size (1.00x = fastest)", ratio_cell)
@@ -102,22 +102,42 @@ def write_summary_sheet(report: "Report", ws, datasets: list[Dataset], names: di
     ws.merge_range(notes_top + 1, 0, notes_top + 6, max(len(sizes), 4),
                    report.prev.notes.get(SUMMARY_SHEET, ""), f["notes"])
 
+    # Log axes can't plot 0 ms or "n/a", so the charts read hidden copies of the
+    # mean and ratio matrices where those become #N/A, which charts draw as a gap.
+    chart_top = notes_top + 8
+    chart_mean_top = chart_top
+    chart_ratio_top = chart_top + len(algs)
+    for i, alg in enumerate(algs):
+        for j, size in enumerate(sizes):
+            c = 1 + j
+            s = next(s for s in all_stats[size] if s.name == alg)
+            mean = s.mean if s.ok and s.mean > 0 else None
+            ratio = s.mean / best[size] if s.ok and best[size] > 0 and s.mean > 0 else None
+            for src_top, dst_top, cached in ((mean_top, chart_mean_top, mean),
+                                             (ratio_top, chart_ratio_top, ratio)):
+                src = xl_rowcol_to_cell(src_top + 2 + i, c)
+                ws.write_formula(dst_top + i, c, f"=IF(AND(ISNUMBER({src}),{src}>0),{src},NA())",
+                                 None, "#N/A" if cached is None else cached)
+    for r in range(chart_top, chart_top + 2 * len(algs)):
+        ws.set_row(r, None, None, {"hidden": True})
+
     # Scaling chart: time vs elements, log-log so all sizes are readable.
     chart_col = len(sizes) + 3
     scaling = report.wb.add_chart({"type": "scatter", "subtype": "straight_with_markers"})
     for i, alg in enumerate(algs):
         if not any(next(s for s in all_stats[size] if s.name == alg).ok for size in sizes):
             continue
-        r = mean_top + 2 + i
+        r = chart_mean_top + i
         color = report.colors[alg]
         scaling.add_series({
-            "name": ref(SUMMARY_SHEET, r, 0),
+            "name": ref(SUMMARY_SHEET, mean_top + 2 + i, 0),
             "categories": ref(SUMMARY_SHEET, size_row, 1, size_row, len(sizes)),
             "values": ref(SUMMARY_SHEET, r, 1, r, len(sizes)),
             "line": {"color": color, "width": 2},
             "marker": {"type": "circle", "size": 6, "fill": {"color": color}, "border": {"color": color}},
         })
     scaling.show_blanks_as("gap")
+    scaling.show_hidden_data()
     scaling.set_title({"name": "Scaling: mean time vs dataset size (log-log)"})
     scaling.set_x_axis({"name": "Elements", "log_base": 10, "num_format": "#,##0",
                         "major_gridlines": {"visible": True}})
@@ -132,13 +152,14 @@ def write_summary_sheet(report: "Report", ws, datasets: list[Dataset], names: di
     for i, alg in enumerate(algs):
         if not any(next(s for s in all_stats[size] if s.name == alg).ok for size in sizes):
             continue
-        r = ratio_top + 2 + i
+        r = chart_ratio_top + i
         grouped.add_series({
-            "name": ref(SUMMARY_SHEET, r, 0),
+            "name": ref(SUMMARY_SHEET, ratio_top + 2 + i, 0),
             "categories": ref(SUMMARY_SHEET, mean_top + 1, 1, mean_top + 1, len(sizes)),
             "values": ref(SUMMARY_SHEET, r, 1, r, len(sizes)),
             "fill": {"color": report.colors[alg]},
         })
+    grouped.show_hidden_data()
     grouped.set_title({"name": "How many times slower than the fastest (log scale)"})
     grouped.set_y_axis({"name": "x slower", "log_base": 10, "num_format": '0.0"x"',
                         "major_gridlines": {"visible": True}})

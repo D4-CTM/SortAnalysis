@@ -1,5 +1,8 @@
 # normalizer
 
+> [!IMPORTANT]
+Normalizer made and enhanced using AI.
+
 Turns the sorter's CSV executions into a single Excel report.
 
 ```sh
@@ -48,3 +51,8 @@ regenerating.
 The CSVs are the sorter's output: `DataSize,Iteration,<Algorithm> Ms,...`, with
 cells such as `91951 ms` or `skipped`. Trailing commas, empty cells, and
 algorithm columns that differ between files are all handled.
+
+`0 ms` means the sort finished faster than the sorter's 1 ms timer resolution.
+It counts as a measurement in min / max / mean, but throughput and "x slower"
+ratios that would divide by it show `< 1 ms` or `n/a` instead. Charts leave
+those points out, because a log axis can't plot 0.
