@@ -113,6 +113,11 @@ En Windows el binario es `zig-out\bin\sorter.exe`.
 
 ### Pruebas
 
+> [!NOTE]
+Las pruebas fueron generadas usando IA en base a como `main.zig` descubre las
+funciones. Estas pruebas no generan ningun _csv_ ni _xlsx_, su proposito es
+asegurar el correcto funcionamiento de los algoritmos de ordenamiento.
+
 ```sh
 zig build test --summary all                         # Debug, con chequeos de seguridad
 zig build test --summary all -Doptimize=ReleaseFast  # mismo modo que las mediciones

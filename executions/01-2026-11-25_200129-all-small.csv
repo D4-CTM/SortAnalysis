@@ -1,0 +1,21 @@
+DataSize,Iteration,Bubble Sort Ms,Selection Sort Ms,Insertion Sort Ms,Quick Sort Ms,Heap Sort Ms,Merge Sort Ms
+10000,1,25 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,2,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,3,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,4,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,5,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,6,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,7,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,8,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,9,23 ms,9 ms,8 ms,0 ms,0 ms,0 ms
+10000,10,24 ms,10 ms,9 ms,0 ms,0 ms,0 ms
+100000,1,9212 ms,1061 ms,992 ms,5 ms,8 ms,7 ms
+100000,2,10912 ms,1270 ms,1130 ms,5 ms,9 ms,7 ms
+100000,3,9975 ms,1065 ms,1018 ms,6 ms,8 ms,7 ms
+100000,4,9610 ms,1089 ms,1008 ms,5 ms,8 ms,7 ms
+100000,5,9342 ms,1063 ms,990 ms,5 ms,8 ms,7 ms
+100000,6,9227 ms,1068 ms,991 ms,5 ms,8 ms,7 ms
+100000,7,9226 ms,1154 ms,1085 ms,6 ms,9 ms,8 ms
+100000,8,9949 ms,1090 ms,1007 ms,5 ms,8 ms,7 ms
+100000,9,9427 ms,1072 ms,996 ms,6 ms,8 ms,7 ms
+100000,10,9362 ms,1091 ms,1009 ms,5 ms,8 ms,7 ms

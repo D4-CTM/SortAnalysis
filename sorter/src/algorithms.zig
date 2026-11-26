@@ -104,6 +104,7 @@ pub fn insertionSort(data: []i32) !void {
 }
 
 /// O(n log n)
+/// Algorithm based in the `geekforgeek` implementation.
 pub fn quickSort(data: []i32) !void {
     qSort(data, 0, data.len);
 }

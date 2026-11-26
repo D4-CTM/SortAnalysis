@@ -1,0 +1,16 @@
+DataSize,Iteration,Bubble Sort Ms,Selection Sort Ms,Insertion Sort Ms,Quick Sort Ms,Heap Sort Ms,Merge Sort Ms
+500000,1,skipped,skipped,skipped,36 ms,51 ms,42 ms
+500000,2,skipped,skipped,skipped,32 ms,52 ms,42 ms
+500000,3,skipped,skipped,skipped,33 ms,52 ms,43 ms
+500000,4,skipped,skipped,skipped,34 ms,54 ms,43 ms
+500000,5,skipped,skipped,skipped,33 ms,53 ms,43 ms
+1000000,1,skipped,skipped,skipped,70 ms,117 ms,90 ms
+1000000,2,skipped,skipped,skipped,70 ms,117 ms,92 ms
+1000000,3,skipped,skipped,skipped,71 ms,118 ms,92 ms
+1000000,4,skipped,skipped,skipped,70 ms,117 ms,92 ms
+1000000,5,skipped,skipped,skipped,72 ms,117 ms,91 ms
+10000000,1,skipped,skipped,skipped,815 ms,2009 ms,1060 ms
+10000000,2,skipped,skipped,skipped,819 ms,2004 ms,1055 ms
+10000000,3,skipped,skipped,skipped,807 ms,2005 ms,1057 ms
+10000000,4,skipped,skipped,skipped,795 ms,2001 ms,1060 ms
+10000000,5,skipped,skipped,skipped,794 ms,1994 ms,1050 ms
